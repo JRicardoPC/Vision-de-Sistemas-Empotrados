@@ -12,13 +12,12 @@
 #include "message_filters/subscriber.h"
 
 static const std::string OPENCV_WINDOWD = "Disparity";
-static const std::string OPENCV_WINDOWDC = "DisparityC";
 
 typedef message_filters::sync_policies::ApproximateTime<
       sensor_msgs::Image, sensor_msgs::Image
       > MySyncPolicy;
 
-class DisparityBM
+class DisparitySGBM
 {
 private:
    ros::NodeHandle nh_;
@@ -29,22 +28,20 @@ private:
    message_filters::Synchronizer<MySyncPolicy> sync_;
 
 public:
-   DisparityBM()
+   DisparitySGBM()
    : it_(nh_),
      image_left_sub_(it_, "/stereo/left/image_rect", 1),
      image_right_sub_(it_, "/stereo/right/image_rect", 1),
      sync_(MySyncPolicy(100),image_left_sub_, image_right_sub_)
    {
-      sync_.registerCallback(boost::bind(&DisparityBM::disparity_callback, this, _1, _2));
-      disparity_bm_pub_ = it_.advertise("/disparity/bm", 1);    
+      sync_.registerCallback(boost::bind(&DisparitySGBM::disparity_callback, this, _1, _2));
+      disparity_bm_pub_ = it_.advertise("/disparity/sgbm", 1);    
       cv::namedWindow(OPENCV_WINDOWD);
-      cv::namedWindow(OPENCV_WINDOWDC);
    }
 
-   ~DisparityBM()
+   ~DisparitySGBM()
    {
       cv::destroyWindow(OPENCV_WINDOWD);
-      cv::destroyWindow(OPENCV_WINDOWDC);
    }
 
    void disparity_callback(const sensor_msgs::ImageConstPtr& image_left_msg, const sensor_msgs::ImageConstPtr& image_right_msg)
@@ -57,36 +54,27 @@ public:
       const cv::Mat right_image = cv_ptr_right->image;
       const cv::Mat imgDisparity16S = cv::Mat(left_image.rows, left_image.cols, CV_16S);
       const cv::Mat imgDisparity8U = cv::Mat(left_image.rows, left_image.cols, CV_8UC1);
-      
-      const cv::Mat imgDisparity16SC = cv::Mat(left_image.rows, left_image.cols, CV_16S);
-      const cv::Mat imgDisparity8UC = cv::Mat(left_image.rows, left_image.cols, CV_8UC1);
 
-      int ndisparity = 16*5;
-      int SADWindowSize = 21;
-      cv::Ptr<cv::StereoBM> sbm = cv::StereoBM::create(ndisparity, SADWindowSize);
-      sbm->compute(left_image, right_image, imgDisparity16S);
+      int minDisparity = 16;
+      int numDisparities = 16;
+      int blockSize = 1;
+
+
+      //cv::Ptr<cv::StereoSGBM> ssgbm = cv::StereoSGBM::create(minDisparity, numDisparities, blockSize);
+      cv::Ptr<cv::StereoSGBM> ssgbm = cv::StereoSGBM::create(0, 32, 3, 128, 256, 20, 16, 1, 100, 20, true);
+
+      ssgbm->compute(left_image, right_image, imgDisparity16S);
 
       double minVal;
       double maxVal;
 
-      cv::minMaxLoc(imgDisparity8U, &minVal, &maxVal);
+      cv::minMaxLoc( imgDisparity8U, &minVal, &maxVal);
 
       ROS_INFO("Min disp: %f Max value: %f", minVal, maxVal);
 
       imgDisparity16S.convertTo(imgDisparity8U, CV_8UC1, 255/(maxVal - minVal));
-      cv::imshow(OPENCV_WINDOWD, imgDisparity8U);
 
-      //Codigo para comparativas
-      /*int ndisparityC = 16*8;
-      int SADWindowSizeC = 21;
-      cv::Ptr<cv::StereoBM> sbmC = cv::StereoBM::create(ndisparityC, SADWindowSizeC);
-      sbmC->compute(left_image, right_image, imgDisparity16SC);
-      double minValC;
-      double maxValC;
-      cv::minMaxLoc(imgDisparity8UC, &minValC, &maxValC);
-      imgDisparity16SC.convertTo(imgDisparity8UC, CV_8UC1, 255/(maxValC - minValC));
-      cv::imshow(OPENCV_WINDOWDC, imgDisparity8UC);
-      */
+      cv::imshow(OPENCV_WINDOWD, imgDisparity8U);
       cv::waitKey(3);
 
       //disparity_bm_publisher_.publish(cv_ptr->toImageMsg());
@@ -95,8 +83,8 @@ public:
 
 int main(int argc, char **argv)
 {
-   ros::init(argc, argv, "DisparityBM");
-   DisparityBM dbm;
+   ros::init(argc, argv, "DisparitySGBM");
+   DisparitySGBM dsgbm;
    ros::spin();
    return 0;
 }
