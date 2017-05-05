@@ -55,13 +55,21 @@ public:
       const cv::Mat imgDisparity16S = cv::Mat(left_image.rows, left_image.cols, CV_16S);
       const cv::Mat imgDisparity8U = cv::Mat(left_image.rows, left_image.cols, CV_8UC1);
 
-      int minDisparity = 16;
-      int numDisparities = 16;
-      int blockSize = 1;
+      int minDisparity = 0;
+      int numDisparities = 16*2;
+      int blockSize = 3;
+      int P1 = 128;
+      int P2 = 256;
+      int disp12MaxDiff = 20;
+      int preFilterCap = 16;
+      int uniquenessRatio = 1;
+      int speckleWindowSize = 100;
+      int speckleRange = 20;
+      bool fullDP = true;
 
-
-      //cv::Ptr<cv::StereoSGBM> ssgbm = cv::StereoSGBM::create(minDisparity, numDisparities, blockSize);
-      cv::Ptr<cv::StereoSGBM> ssgbm = cv::StereoSGBM::create(0, 32, 3, 128, 256, 20, 16, 1, 100, 20, true);
+      cv::Ptr<cv::StereoSGBM> ssgbm = cv::StereoSGBM::create(minDisparity, numDisparities, blockSize, P1, P2, 
+                                                            disp12MaxDiff, preFilterCap, uniquenessRatio, speckleWindowSize,
+                                                            speckleRange, fullDP);
 
       ssgbm->compute(left_image, right_image, imgDisparity16S);
 

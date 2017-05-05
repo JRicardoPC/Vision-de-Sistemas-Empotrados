@@ -12,10 +12,10 @@
 #include "message_filters/subscriber.h"
 
 static const std::string OPENCV_WINDOWD = "Disparity";
-static const std::string OPENCV_WINDOWDC = "DisparityC";
+//static const std::string OPENCV_WINDOWDC = "DisparityC";
 
 typedef message_filters::sync_policies::ApproximateTime<
-      sensor_msgs::Image, sensor_msgs::Image
+      sensor_msgs::Image, sensor_msgs::Image,
       > MySyncPolicy;
 
 class DisparityBM
@@ -38,13 +38,13 @@ public:
       sync_.registerCallback(boost::bind(&DisparityBM::disparity_callback, this, _1, _2));
       disparity_bm_pub_ = it_.advertise("/disparity/bm", 1);    
       cv::namedWindow(OPENCV_WINDOWD);
-      cv::namedWindow(OPENCV_WINDOWDC);
+      //cv::namedWindow(OPENCV_WINDOWDC);
    }
 
    ~DisparityBM()
    {
       cv::destroyWindow(OPENCV_WINDOWD);
-      cv::destroyWindow(OPENCV_WINDOWDC);
+      //cv::destroyWindow(OPENCV_WINDOWDC);
    }
 
    void disparity_callback(const sensor_msgs::ImageConstPtr& image_left_msg, const sensor_msgs::ImageConstPtr& image_right_msg)
@@ -57,9 +57,6 @@ public:
       const cv::Mat right_image = cv_ptr_right->image;
       const cv::Mat imgDisparity16S = cv::Mat(left_image.rows, left_image.cols, CV_16S);
       const cv::Mat imgDisparity8U = cv::Mat(left_image.rows, left_image.cols, CV_8UC1);
-      
-      const cv::Mat imgDisparity16SC = cv::Mat(left_image.rows, left_image.cols, CV_16S);
-      const cv::Mat imgDisparity8UC = cv::Mat(left_image.rows, left_image.cols, CV_8UC1);
 
       int ndisparity = 16*5;
       int SADWindowSize = 21;
@@ -77,7 +74,9 @@ public:
       cv::imshow(OPENCV_WINDOWD, imgDisparity8U);
 
       //Codigo para comparativas
-      /*int ndisparityC = 16*8;
+      /*const cv::Mat imgDisparity16SC = cv::Mat(left_image.rows, left_image.cols, CV_16S);
+      const cv::Mat imgDisparity8UC = cv::Mat(left_image.rows, left_image.cols, CV_8UC1);
+      int ndisparityC = 16*8;
       int SADWindowSizeC = 21;
       cv::Ptr<cv::StereoBM> sbmC = cv::StereoBM::create(ndisparityC, SADWindowSizeC);
       sbmC->compute(left_image, right_image, imgDisparity16SC);
@@ -87,9 +86,18 @@ public:
       imgDisparity16SC.convertTo(imgDisparity8UC, CV_8UC1, 255/(maxValC - minValC));
       cv::imshow(OPENCV_WINDOWDC, imgDisparity8UC);
       */
+
+      cv_bridge::CvImage out_msg;
+      sensor_msgs::Image img_msg;
+
+      std_msgs::Header header; // empty header
+      header.stamp = ros::Time::now(); // time
+      out_msg = cv_bridge::CvImage(header, sensor_msgs::image_encodings::RGB8, imgDisparity8U);
+      out_msg.toImageMsg(img_msg);
+
       cv::waitKey(3);
 
-      //disparity_bm_publisher_.publish(cv_ptr->toImageMsg());
+      disparity_bm_pub_.publish(img_msg);
    }
 };
 
