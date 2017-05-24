@@ -15,7 +15,7 @@ static const std::string OPENCV_WINDOWD = "Disparity";
 //static const std::string OPENCV_WINDOWDC = "DisparityC";
 
 typedef message_filters::sync_policies::ApproximateTime<
-      sensor_msgs::Image, sensor_msgs::Image,
+      sensor_msgs::Image, sensor_msgs::Image
       > MySyncPolicy;
 
 class DisparityBM
@@ -58,8 +58,8 @@ public:
       const cv::Mat imgDisparity16S = cv::Mat(left_image.rows, left_image.cols, CV_16S);
       const cv::Mat imgDisparity8U = cv::Mat(left_image.rows, left_image.cols, CV_8UC1);
 
-      int ndisparity = 16*5;
-      int SADWindowSize = 21;
+      int ndisparity = 16*8;
+      int SADWindowSize = 15;
       cv::Ptr<cv::StereoBM> sbm = cv::StereoBM::create(ndisparity, SADWindowSize);
       sbm->compute(left_image, right_image, imgDisparity16S);
 
