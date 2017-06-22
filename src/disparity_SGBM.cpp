@@ -56,7 +56,7 @@ public:
       const cv::Mat imgDisparity8U = cv::Mat(left_image.rows, left_image.cols, CV_8UC1);
 
       int minDisparity = 0;
-      int numDisparities = 16*8;
+      int numDisparities = 16*3;
       int blockSize = 15;
       int P1 = 200;
       int P2 = 400;

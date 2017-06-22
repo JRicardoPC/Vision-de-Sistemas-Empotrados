@@ -12,6 +12,8 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   image_transport
   message_filters
+  stereo_msgs
+  std_msgs
 )
 
 ## Generate messages in the 'msg' folder
