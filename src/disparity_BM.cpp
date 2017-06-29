@@ -16,6 +16,7 @@
 //Lo nuevo
 #include "std_msgs/Float64.h"
 #include "stdlib.h"
+#include "depth_image_proc/depth_traits.h"
 
 static const std::string OPENCV_WINDOWD = "Disparity";
 //static const std::string OPENCV_WINDOWDC = "DisparityC";
@@ -49,9 +50,9 @@ public:
      sync_(MySyncPolicy(100),image_left_sub_, image_right_sub_, cameraInfoR_)
    {
       sync_.registerCallback(boost::bind(&DisparityBM::disparity_callback, this, _1, _2, _3));
-      camera_Info_Pub_ = nh_.advertise<sensor_msgs::CameraInfo>("/disparity/camera_info", 1);
-      depth_image_pub_ = nh_.advertise<sensor_msgs::Image>("/disparity/depth", 1);
-      disparity_bm_pub_ = nh_.advertise<sensor_msgs::Image>("/disparity/bm", 1);    
+      camera_Info_Pub_ = nh_.advertise<sensor_msgs::CameraInfo>("/tfg/camera_info", 1);
+      depth_image_pub_ = nh_.advertise<sensor_msgs::Image>("/tfg/depthImage", 1);
+      disparity_bm_pub_ = nh_.advertise<sensor_msgs::Image>("/tfg/disparityImage/bm", 1);    
       cv::namedWindow(OPENCV_WINDOWD);
 
       //cv::namedWindow(OPENCV_WINDOWDC);
@@ -124,38 +125,39 @@ public:
       out_msg.encoding = sensor_msgs::image_encodings::TYPE_8UC1; // Or whatever
       out_msg.image    = imgDisparity8U; // Your cv::Mat
 
-      sensor_msgs::ImagePtr depthImage;
-      depthImage = out_msg.toImageMsg();
+      sensor_msgs::ImagePtr disparityImage;
+      disparityImage = out_msg.toImageMsg();
 
       //calcular depthImage
 
-      float focal = myCameraInfo.K[0];
-      float baseline = fabs(myCameraInfo.P[3]/focal);
+      float focal = myCameraInfo.P[0];
+      float baseline = -myCameraInfo.P[3]/focal;
       //ROS_INFO("baseline: %f", baseline);
 
-      sensor_msgs::Image currentDepthImage;
-      currentDepthImage.header = depthImage->header;
-      currentDepthImage.encoding = sensor_msgs::image_encodings::TYPE_32FC1;
-      currentDepthImage.height = depthImage->height;
-      currentDepthImage.width = depthImage->width;
-      currentDepthImage.step = currentDepthImage.width * sizeof(float);
-      currentDepthImage.data.resize(currentDepthImage.height * currentDepthImage.step, 0.0f);
+      sensor_msgs::Image depthImage;
+      depthImage.header = disparityImage->header;
+      depthImage.encoding = sensor_msgs::image_encodings::TYPE_32FC1;
+      depthImage.height = disparityImage->height;
+      depthImage.width = disparityImage->width;
+      depthImage.step = depthImage.width * sizeof(float);
+      depthImage.data.resize(depthImage.height * depthImage.step, 0.0f);
 
-      //currentDepthImage = *depthImage; 
 
-      uint8_t* data_in = reinterpret_cast<uint8_t*>(&depthImage->data[0]);
-      int row_step = depthImage->step / sizeof(uint8_t);
-      float* disp_data = reinterpret_cast<float*>(&currentDepthImage.data[0]);
+      float unit_scaling = depth_image_proc::DepthTraits<float>::toMeters(float(1));
+      float constant = focal * baseline / unit_scaling;
+      uint8_t* data_in = reinterpret_cast<uint8_t*>(&disparityImage->data[0]);
+      int row_step = disparityImage->step / sizeof(uint8_t);
+      float* depth_data = reinterpret_cast<float*>(&depthImage.data[0]);
       //int size = currentDepthImage.width * currentDepthImage.height;
-      for(int x=0; x<currentDepthImage.height; x++)
+      for(int x=0; x<depthImage.height; x++)
       {
-         for(int y=0; y<currentDepthImage.width; y++)
+         for(int y=0; y<depthImage.width; y++)
          {
-            float depth = data_in[y];
-            *disp_data = (baseline*focal) / depth;
+            float disp = data_in[y];
+            *depth_data = (constant / disp)*20;
             //*disp_data =(float) depth;
-            //ROS_INFO("%f %f %f", *disp_data, depth, baseline*focal);
-            ++disp_data;  
+            //ROS_INFO("F: %f O: %f", *disp_data, depth);
+            ++depth_data;  
          }
          data_in += row_step;
       }
@@ -168,8 +170,8 @@ public:
 
       //publicar
       camera_Info_Pub_.publish(myCameraInfo);
-      disparity_bm_pub_.publish(depthImage);
-      depth_image_pub_.publish(currentDepthImage);
+      disparity_bm_pub_.publish(disparityImage);
+      depth_image_pub_.publish(depthImage);
    }
 };
 

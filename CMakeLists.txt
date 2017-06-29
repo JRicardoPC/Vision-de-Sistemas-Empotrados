@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_filters
   stereo_msgs
   std_msgs
+  depth_image_proc
 )
 
 ## Generate messages in the 'msg' folder
