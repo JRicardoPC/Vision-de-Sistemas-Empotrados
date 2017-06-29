@@ -21,7 +21,7 @@ static const std::string OPENCV_WINDOWD = "Disparity";
 //static const std::string OPENCV_WINDOWDC = "DisparityC";
 
 typedef message_filters::sync_policies::ApproximateTime<
-      sensor_msgs::Image, sensor_msgs::Image
+      sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo
       > MySyncPolicy;
 
 class DisparityBM
@@ -31,10 +31,12 @@ private:
    image_transport::ImageTransport it_;
    image_transport::SubscriberFilter image_left_sub_;
    image_transport::SubscriberFilter image_right_sub_;
-   /*
-   message_filters::Subscriber<sensor_msgs::CameraInfo> cameraInfoL_;
-   message_filters::Subscriber<sensor_msgs::CameraInfo> cameraInfoR_;*/
+   
+   //message_filters::Subscriber<sensor_msgs::CameraInfo> cameraInfoL_;
+   message_filters::Subscriber<sensor_msgs::CameraInfo> cameraInfoR_;
+   ros::Publisher camera_Info_Pub_;
    ros::Publisher disparity_bm_pub_;
+   ros::Publisher depth_image_pub_;
    message_filters::Synchronizer<MySyncPolicy> sync_;
 
 public:
@@ -42,11 +44,13 @@ public:
    : it_(nh_),
      image_left_sub_(it_, "/stereo/left/image_rect", 1),
      image_right_sub_(it_, "/stereo/right/image_rect", 1),
-     /*cameraInfoR_(nh_, "/stereo/right/camera_info", 1),
-     cameraInfoL_(nh_, "/stereo/left/camera_info", 1),*/
-     sync_(MySyncPolicy(100),image_left_sub_, image_right_sub_)
+     cameraInfoR_(nh_, "/stereo/right/camera_info", 1),
+     //cameraInfoL_(nh_, "/stereo/left/camera_info", 1),
+     sync_(MySyncPolicy(100),image_left_sub_, image_right_sub_, cameraInfoR_)
    {
-      sync_.registerCallback(boost::bind(&DisparityBM::disparity_callback, this, _1, _2));
+      sync_.registerCallback(boost::bind(&DisparityBM::disparity_callback, this, _1, _2, _3));
+      camera_Info_Pub_ = nh_.advertise<sensor_msgs::CameraInfo>("/disparity/camera_info", 1);
+      depth_image_pub_ = nh_.advertise<sensor_msgs::Image>("/disparity/depth", 1);
       disparity_bm_pub_ = nh_.advertise<sensor_msgs::Image>("/disparity/bm", 1);    
       cv::namedWindow(OPENCV_WINDOWD);
 
@@ -59,7 +63,7 @@ public:
       //cv::destroyWindow(OPENCV_WINDOWDC);
    }
 
-   void disparity_callback(const sensor_msgs::ImageConstPtr& image_left_msg, const sensor_msgs::ImageConstPtr& image_right_msg)
+   void disparity_callback(const sensor_msgs::ImageConstPtr& image_left_msg, const sensor_msgs::ImageConstPtr& image_right_msg, const sensor_msgs::CameraInfoConstPtr& camera_info_R)
    {
       ROS_INFO("Received stereo images");
 
@@ -105,7 +109,14 @@ public:
       baseline = abs(infoL.P[3] - infoR.P[3]);
       ROS_INFO("baseline: %f", baseline);*/
 
+      //Creando mi propio camera_info
+      sensor_msgs::CameraInfo myCameraInfo;
+      myCameraInfo = *camera_info_R;
+
       //Convirtiendo Mat en ros_msgs
+      //const cv::Mat imgDisparity32F = cv::Mat(left_image.rows, left_image.cols, CV_32F);
+      //imgDisparity8U.convertTo(imgDisparity32F, CV_32F);
+      
       cv::Mat depthCvImage;         
 
       cv_bridge::CvImage out_msg;
@@ -118,19 +129,47 @@ public:
 
       //calcular depthImage
 
-      float baseline = 33.109935;
-      float focal = 0.794303;
-      /*int size = depthImage.width * depthImage.height;
+      float focal = myCameraInfo.K[0];
+      float baseline = fabs(myCameraInfo.P[3]/focal);
+      //ROS_INFO("baseline: %f", baseline);
+
       sensor_msgs::Image currentDepthImage;
-      currentDepthImage = *depthImage;
-      for(int x=0; x<size; x++)
+      currentDepthImage.header = depthImage->header;
+      currentDepthImage.encoding = sensor_msgs::image_encodings::TYPE_32FC1;
+      currentDepthImage.height = depthImage->height;
+      currentDepthImage.width = depthImage->width;
+      currentDepthImage.step = currentDepthImage.width * sizeof(float);
+      currentDepthImage.data.resize(currentDepthImage.height * currentDepthImage.step, 0.0f);
+
+      //currentDepthImage = *depthImage; 
+
+      uint8_t* data_in = reinterpret_cast<uint8_t*>(&depthImage->data[0]);
+      int row_step = depthImage->step / sizeof(uint8_t);
+      float* disp_data = reinterpret_cast<float*>(&currentDepthImage.data[0]);
+      //int size = currentDepthImage.width * currentDepthImage.height;
+      for(int x=0; x<currentDepthImage.height; x++)
       {
-         currentDepthImage.data[x]=(baseline*focal)/currentDepthImage.data[x];
-      }*/
+         for(int y=0; y<currentDepthImage.width; y++)
+         {
+            float depth = data_in[y];
+            *disp_data = (baseline*focal) / depth;
+            //*disp_data =(float) depth;
+            //ROS_INFO("%f %f %f", *disp_data, depth, baseline*focal);
+            ++disp_data;  
+         }
+         data_in += row_step;
+      }
 
       cv::waitKey(3);
 
+      //Transformar de depth image a laserScan
+
+
+
+      //publicar
+      camera_Info_Pub_.publish(myCameraInfo);
       disparity_bm_pub_.publish(depthImage);
+      depth_image_pub_.publish(currentDepthImage);
    }
 };
 
