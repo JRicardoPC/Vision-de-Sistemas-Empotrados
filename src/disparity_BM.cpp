@@ -143,8 +143,8 @@ public:
       depthImage.data.resize(depthImage.height * depthImage.step, 0.0f);
 
 
-      float unit_scaling = depth_image_proc::DepthTraits<float>::toMeters(float(1));
-      float constant = focal * baseline / unit_scaling;
+      //float unit_scaling = depth_image_proc::DepthTraits<float>::toMeters(float(1));
+      float constant = focal * baseline * 1000;
       uint8_t* data_in = reinterpret_cast<uint8_t*>(&disparityImage->data[0]);
       int row_step = disparityImage->step / sizeof(uint8_t);
       float* depth_data = reinterpret_cast<float*>(&depthImage.data[0]);
@@ -154,7 +154,7 @@ public:
          for(int y=0; y<depthImage.width; y++)
          {
             float disp = data_in[y];
-            *depth_data = (constant / disp)*20;
+            *depth_data = (constant / disp);
             //*disp_data =(float) depth;
             //ROS_INFO("F: %f O: %f", *disp_data, depth);
             ++depth_data;  
