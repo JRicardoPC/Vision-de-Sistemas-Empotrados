@@ -1,0 +1,13 @@
+<launch>
+<node pkg="tf" type="static_transform_publisher" name="left_laser_to_base_link_static_transform" args="0.6 -0.32 0.22 -0.1 0 0 base_link ps4_laser 100" />
+
+<node name="depthimage_to_laserscan" pkg="depthimage_to_laserscan" type="depthimage_to_laserscan" > 
+  <remap from="image" to="/tfg/depthImage"/>
+  <remap from="camera_info" to="/tfg/camera_info"/>
+  <param name="scan_height" value="10"/>
+  <param name="range_min" value="0.1" />
+  <param name="range_max" value="15" />
+  <param name="output_frame_id" value="ps4_laser" /> 
+
+</node>
+</launch>

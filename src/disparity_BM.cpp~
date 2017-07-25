@@ -108,10 +108,10 @@ public:
 
      
 
-      //cv::StereoBM sbm = cv::StereoBM(CV_STEREO_BM_BASIC,ndisparity, SADWindowSize);
+      cv::StereoBM sbm = cv::StereoBM(CV_STEREO_BM_BASIC,ndisparity, SADWindowSize);
       #if CV_MAJOR_VERSION == 3
  	
-         sbm->compute(left_image, right_image, imgDisparity16S);
+         sbm.compute(left_image, right_image, imgDisparity16S);
      
       #else
 	
@@ -216,7 +216,7 @@ public:
       //calcular depthImage
 
      
-   //  ROS_INFO("focal: %f, T: %f", dispImage.f,  dispImage.T);
+     ROS_INFO("focal: %f, T: %f", dispImage.f,  dispImage.T);
   //    ROS_INFO("focal?: %f", myCameraInfo.P[0]);
 
       sensor_msgs::Image depthImage;

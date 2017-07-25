@@ -77,7 +77,7 @@ public:
                                                             disp12MaxDiff, preFilterCap, uniquenessRatio, speckleWindowSize,
                                                             speckleRange, fullDP);
 
-      ssgbm.operator()(left_image, right_image, imgDisparity16S);
+      ssgbm.compute(left_image, right_image, imgDisparity16S);
 
       double minVal;
       double maxVal;

@@ -11,10 +11,10 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   cv_bridge
   image_transport
+  image_geometry
   message_filters
   stereo_msgs
   std_msgs
-  depth_image_proc
 )
 
 ## Generate messages in the 'msg' folder
@@ -49,20 +49,19 @@ include_directories(
 #This will create executables of the nodes
 add_executable(Image_Calibrate src/Image_Calibrate.cpp)
 add_executable(DisparityBM src/disparity_BM.cpp)
-add_executable(DisparitySGBM src/disparity_SGBM.cpp)
-add_executable(DisparityROSBM src/disparity_ROSBM.cpp)
-
+#add_executable(DisparitySGBM src/disparity_SGBM.cpp)
 
 
 #This will generate message header file before building the target
 add_dependencies(Image_Calibrate tfg_generate_messages_cpp)
 add_dependencies(DisparityBM tfg_generate_messages_cpp)
-add_dependencies(DisparitySGBM tfg_generate_messages_cpp)
-add_dependencies(DisparityROSBM tfg_generate_messages_cpp)
+#add_dependencies(DisparitySGBM tfg_generate_messages_cpp)
 
 
 #This will link executables to the appropriate libraries
 target_link_libraries(Image_Calibrate ${catkin_LIBRARIES})
 target_link_libraries(DisparityBM ${catkin_LIBRARIES})
-target_link_libraries(DisparitySGBM ${catkin_LIBRARIES})
-target_link_libraries(DisparityROSBM ${catkin_LIBRARIES})
+#target_link_libraries(DisparitySGBM ${catkin_LIBRARIES})
+
+
+add_compile_options(-std=gnu++11)
