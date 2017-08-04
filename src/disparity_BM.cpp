@@ -8,22 +8,14 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/calib3d/calib3d.hpp"
-
 #include "message_filters/synchronizer.h"
 #include "message_filters/sync_policies/approximate_time.h"
 #include "message_filters/sync_policies/exact_time.h"
 #include "message_filters/subscriber.h"
 #include <image_geometry/stereo_camera_model.h>
 #include <stereo_msgs/DisparityImage.h>
-
-//Lo nuevo
 #include "std_msgs/Float64.h"
 #include "stdlib.h"
-
-static const std::string OPENCV_WINDOWD = "Disparity";
-//static const std::string OPENCV_WINDOWDC = "DisparityC";
-
-
 
 typedef message_filters::sync_policies::ExactTime<
       sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::Image, sensor_msgs::CameraInfo
@@ -50,116 +42,57 @@ private:
    const int SADWindowSize = 15;
    const int min_Disparity = 0;
 
-  #if CV_MAJOR_VERSION == 3
- 	 cv::Ptr<cv::StereoBM> sbm = cv::StereoBM::create(ndisparity, SADWindowSize);
-  #else
-	 cv::StereoBM sbm = cv::StereoBM(CV_STEREO_BM_BASIC,ndisparity, SADWindowSize);
-  #endif
+   #if CV_MAJOR_VERSION == 3
+ 	   cv::Ptr<cv::StereoBM> sbm = cv::StereoBM::create(ndisparity, SADWindowSize);
+   #else
+	   cv::StereoBM sbm = cv::StereoBM(CV_STEREO_BM_BASIC,ndisparity, SADWindowSize);
+   #endif
 
 public:
    DisparityBM()  : it_(nh_),
-     image_left_sub_(it_, "/stereo/left/image_rect", 1),
-     cameraInfoL_(nh_, "/stereo/left/camera_info", 1),     
-     image_right_sub_(it_, "/stereo/right/image_rect", 1),
-     cameraInfoR_(nh_, "/stereo/right/camera_info", 1),       
-     sync_(MySyncPolicy(10),image_left_sub_, cameraInfoL_, image_right_sub_, cameraInfoR_)
+      image_left_sub_(it_, "/stereo/left/image_rect", 1),
+      cameraInfoL_(nh_, "/stereo/left/camera_info", 1),     
+      image_right_sub_(it_, "/stereo/right/image_rect", 1),
+      cameraInfoR_(nh_, "/stereo/right/camera_info", 1),       
+      sync_(MySyncPolicy(10),image_left_sub_, cameraInfoL_, image_right_sub_, cameraInfoR_)
    {
 
       sync_.registerCallback(boost::bind(&DisparityBM::disparity_callback, this, _1, _2, _3, _4));
       camera_Info_Pub_ = nh_.advertise<sensor_msgs::CameraInfo>("/tfg/camera_info", 1);
       depth_image_pub_ = nh_.advertise<sensor_msgs::Image>("/tfg/depthImage", 1);
       disparity_bm_pub_ = nh_.advertise<stereo_msgs::DisparityImage>("/tfg/disparityImage/bm", 1); 
-   
 
-      //cv::namedWindow(OPENCV_WINDOWDC);
    }
 
    ~DisparityBM()
    {
-      cv::destroyWindow(OPENCV_WINDOWD);
-      //cv::destroyWindow(OPENCV_WINDOWDC);
+
    }
 
-
-
-/**********/
- 
-
-/***********/ 
   void disparity_callback(const sensor_msgs::ImageConstPtr& image_left_msg,
                                const sensor_msgs::CameraInfoConstPtr& camera_info_L,
                                const sensor_msgs::ImageConstPtr& image_right_msg,
                                const sensor_msgs::CameraInfoConstPtr& camera_info_R)
-//(const sensor_msgs::ImageConstPtr& image_left_msg, const sensor_msgs::ImageConstPtr& image_right_msg, const sensor_msgs::CameraInfoConstPtr& camera_info_R)
    {
-    //  ROS_INFO("Received stereo images");
-  static const int DPP = 16; // disparities per pixel
-  static const double inv_dpp = 1.0 / DPP;
+      static const int DPP = 16; // disparities per pixel
+      static const double inv_dpp = 1.0 / DPP;
 
-      cv_bridge::CvImageConstPtr cv_ptr_left = cv_bridge::toCvCopy(image_left_msg, sensor_msgs::image_encodings::TYPE_8UC1);
-      cv_bridge::CvImageConstPtr cv_ptr_right = cv_bridge::toCvCopy(image_right_msg, sensor_msgs::image_encodings::TYPE_8UC1);
+      cv_bridge::CvImageConstPtr cv_ptr_left = cv_bridge::toCvShare(image_left_msg, sensor_msgs::image_encodings::TYPE_8UC1);
+      cv_bridge::CvImageConstPtr cv_ptr_right = cv_bridge::toCvShare(image_right_msg, sensor_msgs::image_encodings::TYPE_8UC1);
       const cv::Mat left_image = cv_ptr_left->image;
       const cv::Mat right_image = cv_ptr_right->image;
 
-     if (imgDisparity16S.empty()) 
-     	imgDisparity16S = cv::Mat(left_image.rows, left_image.cols, CV_16S);
+      if (imgDisparity16S.empty()) 
+     	   imgDisparity16S = cv::Mat(left_image.rows, left_image.cols, CV_16S);
      
-     // const cv::Mat imgDisparity8U = cv::Mat(left_image.rows, left_image.cols, CV_8UC1);
-
-     
-
-      //cv::StereoBM sbm = cv::StereoBM(CV_STEREO_BM_BASIC,ndisparity, SADWindowSize);
       #if CV_MAJOR_VERSION == 3
- 	
          sbm->compute(left_image, right_image, imgDisparity16S);
-     
       #else
-	
          sbm.operator()(left_image, right_image, imgDisparity16S);
-     
       #endif
 
-
-
-      //cv::Ptr<cv::StereoBM> sbm = cv::StereoBM::create(ndisparity, SADWindowSize);
-      
-      //sbm->compute(left_image, right_image, imgDisparity16S);
-      //sbm.compute(left_image, right_image, imgDisparity16S);
-      //sbm.operator()(left_image, right_image, imgDisparity16S);
-
-      double minVal;
-      double maxVal;
-
-      //cv::minMaxLoc(imgDisparity8U, &minVal, &maxVal);
-
-      //ROS_INFO("Min disp: %f Max value: %f", minVal, maxVal);
-
-      //imgDisparity16S.convertTo(imgDisparity8U, CV_8UC1, 255/(maxVal - minVal));
-      //imgDisparity16S.convertTo(imgDisparity8U, CV_8UC1);
-      //cv::imshow(OPENCV_WINDOWD, imgDisparity8U);
-
-      //Codigo para comparativas
-      /*const cv::Mat imgDisparity16SC = cv::Mat(left_image.rows, left_image.cols, CV_16S);
-      const cv::Mat imgDisparity8UC = cv::Mat(left_image.rows, left_image.cols, CV_8UC1);
-      int ndisparityC = 16*8;
-      int SADWindowSizeC = 21;
-      cv::Ptr<cv::StereoBM> sbmC = cv::StereoBM::create(ndisparityC, SADWindowSizeC);
-      sbmC->compute(left_image, right_image, imgDisparity16SC);
-      double minValC;
-      double maxValC;
-      cv::minMaxLoc(imgDisparity8UC, &minValC, &maxValC);
-      imgDisparity16SC.convertTo(imgDisparity8UC, CV_8UC1, 255/(maxValC - minValC));
-      cv::imshow(OPENCV_WINDOWDC, imgDisparity8UC);
-      */
-
-      //Probando conversiones
-      /*std_msgs::Float64 baseline;
-
-      baseline = abs(infoL.P[3] - infoR.P[3]);
-      ROS_INFO("baseline: %f", baseline);*/
-
- 	image_geometry::StereoCameraModel model_;
-	model_.fromCameraInfo(camera_info_L,camera_info_R);
+ 	   image_geometry::StereoCameraModel model_;
+      model_.fromCameraInfo(camera_info_L,camera_info_R);
 
       float focal = model_.right().fx();
       float baseline = model_.baseline();
@@ -168,57 +101,28 @@ public:
       sensor_msgs::CameraInfo myCameraInfo;
       myCameraInfo = *camera_info_R;
 
-      //Convirtiendo Mat en ros_msgs
-      //const cv::Mat imgDisparity32F = cv::Mat(left_image.rows, left_image.cols, CV_32F);
-      //imgDisparity8U.convertTo(imgDisparity32F, CV_32F);
-      
-     /* cv::Mat depthCvImage;         
+     	sensor_msgs::Image& dimage = dispImage.image;
+   	dispImage.header = camera_info_L->header;
+     	dimage.height = imgDisparity16S.rows;
+     	dimage.width = imgDisparity16S.cols;
+     	dimage.encoding = sensor_msgs::image_encodings::TYPE_32FC1;
+     	dimage.step = dimage.width * sizeof(float);
+     	dimage.data.resize(dimage.step * dimage.height);
+     	cv::Mat_<float> dmat(dimage.height, dimage.width, (float*)&dimage.data[0], dimage.step);
 
-      cv_bridge::CvImage out_msg;
-      out_msg.header   = image_right_msg->header; // Same timestamp and tf frame as input image
-      out_msg.encoding = sensor_msgs::image_encodings::TYPE_8UC1; // Or whatever
-      out_msg.image    = imgDisparity8U; // Your cv::Mat */
+     	imgDisparity16S.convertTo(dmat, dmat.type(), inv_dpp, -(model_.left().cx() - model_.right().cx()));
+    	ROS_ASSERT(dmat.data == &dimage.data[0]);
 
-     
+     // Stereo parameters
+     	dispImage.f = model_.right().fx();
+     	dispImage.T = model_.baseline();
 
-  	sensor_msgs::Image& dimage = dispImage.image;
-	dispImage.header = camera_info_L->header;
-  	dimage.height = imgDisparity16S.rows;
-  	dimage.width = imgDisparity16S.cols;
-  	dimage.encoding = sensor_msgs::image_encodings::TYPE_32FC1;
-  	dimage.step = dimage.width * sizeof(float);
-  	dimage.data.resize(dimage.step * dimage.height);
-  	cv::Mat_<float> dmat(dimage.height, dimage.width, (float*)&dimage.data[0], dimage.step);
-
-  // We convert from fixed-point to float disparity and also adjust for any x-offset between
-  // the principal points: d = d_fp*inv_dpp - (cx_l - cx_r)
-  	imgDisparity16S.convertTo(dmat, dmat.type(), inv_dpp, -(model_.left().cx() - model_.right().cx()));
- 	ROS_ASSERT(dmat.data == &dimage.data[0]);
-  /// @todo is_bigendian? :)
-
-  // Stereo parameters
-  	dispImage.f = model_.right().fx();
-  	dispImage.T = model_.baseline();
-
-  /// @todo Window of (potentially) valid disparities
-
-  // Disparity search range
-  	dispImage.min_disparity = min_Disparity;
-  	dispImage.max_disparity = min_Disparity + ndisparity - 1;
-  	dispImage.delta_d = inv_dpp;
-
-
-
-
-   
-     
+     // Disparity search range
+     	dispImage.min_disparity = min_Disparity;
+     	dispImage.max_disparity = min_Disparity + ndisparity - 1;
+     	dispImage.delta_d = inv_dpp;
 
       //calcular depthImage
-
-     
-   //  ROS_INFO("focal: %f, T: %f", dispImage.f,  dispImage.T);
-  //    ROS_INFO("focal?: %f", myCameraInfo.P[0]);
-
       sensor_msgs::Image depthImage;
       depthImage.header = dispImage.header;
       depthImage.encoding = sensor_msgs::image_encodings::TYPE_32FC1;
@@ -227,51 +131,22 @@ public:
       depthImage.step = depthImage.width * sizeof(float);
       depthImage.data.resize(depthImage.height * depthImage.step, 0.0f);
 
-      //currentDepthImage = *depthImage; 
- //float unit_scaling = DepthTraits<float>::toMeters( T(1) );
-  float constant = dispImage.f * dispImage.T;
+      float constant = dispImage.f * dispImage.T;
 
-  const float* disp_row = reinterpret_cast<const float*>(&dimage.data[0]);
-  int row_step = dimage.step / sizeof(float);
-  float* depth_data = reinterpret_cast<float*>(&depthImage.data[0]);
-  for (int v = 0; v < (int)dimage.height; ++v)
-  {
-    for (int u = 0; u < (int)dimage.width; ++u)
-    {
-      float disp = disp_row[u];
-       if (disp > 0)
-        *depth_data = constant / disp;
-      ++depth_data;
-    }
-
-    disp_row += row_step;
-  }
-
-
-
-
-  /*    float* data_in = reinterpret_cast<float*>(&dimage.data[0]);
+      const float* disp_row = reinterpret_cast<const float*>(&dimage.data[0]);
       int row_step = dimage.step / sizeof(float);
       float* depth_data = reinterpret_cast<float*>(&depthImage.data[0]);
-      //int size = currentDepthImage.width * currentDepthImage.height;
-      for(int x=0; x<depthImage.height; x++)
+      for (int v = 0; v < (int)dimage.height; ++v)
       {
-         for(int y=0; y<depthImage.width; y++)
+         for (int u = 0; u < (int)dimage.width; ++u)
          {
-            float disp = data_in[y];
-            *depth_data = ((baseline*focal) / disp);
-            //*disp_data =(float) depth;
-            //ROS_INFO("imagen creada: %f , imagen original: %f ", *depth_data, disp);
-            ++depth_data;  
+            float disp = disp_row[u];
+            if (disp > 0)
+            *depth_data = constant / disp;
+            ++depth_data;
          }
-         data_in += row_step;
+         disp_row += row_step;
       }
-
-      //cv::waitKey(3); */
-
-      //Transformar de depth image a laserScan
-
-
 
       //publicar
       camera_Info_Pub_.publish(myCameraInfo);
